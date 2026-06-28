@@ -14,7 +14,6 @@ DEFAULT_USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 F
 DEFAULT_TIMEOUT = 30
 COOKIE_ENV = os.environ.get("YOUTUBE_COOKIES")
 
-# Заголовки, которые имитируют обычный браузер
 BROWSER_HEADERS = {
     "User-Agent": DEFAULT_USER_AGENT,
     "Accept": "*/*",
@@ -166,7 +165,7 @@ def get_all_formats(video_url):
 # ---------- API ----------
 @app.route('/health')
 def health():
-    return jsonify({"status": "ok", "version": "2.2"})
+    return jsonify({"status": "ok", "version": "3.0"})
 
 @app.route('/formats', methods=['POST'])
 def formats():
@@ -195,14 +194,12 @@ def stream():
     if not direct_url:
         return jsonify({"error": "Failed to extract video URL", "details": error}), 500
 
-    # Копируем заголовки браузера и добавляем Range если есть
     headers = BROWSER_HEADERS.copy()
     range_header = request.headers.get('Range')
     if range_header:
         headers['Range'] = range_header
 
     try:
-        # Используем сессию для сохранения cookies между запросами
         session = requests.Session()
         resp = session.get(
             direct_url, 
@@ -212,7 +209,6 @@ def stream():
             allow_redirects=True
         )
         
-        # Если YouTube вернул 403, пробуем без Accept-Encoding
         if resp.status_code == 403:
             print(f"[STREAM] Got 403, retrying without Accept-Encoding...")
             retry_headers = headers.copy()
@@ -332,10 +328,109 @@ def info():
                     "duration": info.get("duration"),
                     "thumbnail": info.get("thumbnail"),
                     "uploader": info.get("uploader"),
+                    "uploader_id": info.get("uploader_id"),
+                    "uploader_url": info.get("uploader_url"),
                     "view_count": info.get("view_count"),
-                    "description": (info.get("description") or "")[:500],
+                    "like_count": info.get("like_count"),
+                    "description": (info.get("description") or "")[:1000],
+                    "upload_date": info.get("upload_date"),
+                    "categories": info.get("categories"),
                 })
             return jsonify({"error": "No info"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if cookie_file and os.path.exists(cookie_file):
+            try:
+                os.remove(cookie_file)
+            except:
+                pass
+
+@app.route('/search', methods=['POST'])
+def search():
+    """Поиск видео на YouTube"""
+    data = request.get_json()
+    if not data or 'query' not in data:
+        return jsonify({"error": "Missing query"}), 400
+    
+    query = data['query']
+    cookie_file = get_cookies_file()
+    
+    ydl_opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "extract_flat": True,
+        "skip_download": True,
+        "playlistend": 20,
+    }
+    if cookie_file:
+        ydl_opts["cookiefile"] = cookie_file
+
+    try:
+        search_url = f"ytsearch20:{query}"
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(search_url, download=False)
+            
+            if not info or not info.get("entries"):
+                return jsonify({"results": []})
+            
+            results = []
+            for entry in info["entries"]:
+                results.append({
+                    "id": entry.get("id"),
+                    "url": entry.get("url") or entry.get("webpage_url"),
+                    "title": entry.get("title"),
+                    "duration": entry.get("duration"),
+                    "uploader": entry.get("uploader") or entry.get("channel"),
+                    "thumbnail": entry.get("thumbnail"),
+                    "view_count": entry.get("view_count"),
+                })
+            
+            return jsonify({"results": results})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if cookie_file and os.path.exists(cookie_file):
+            try:
+                os.remove(cookie_file)
+            except:
+                pass
+
+@app.route('/trending', methods=['GET'])
+def trending():
+    """Получить трендовые видео"""
+    cookie_file = get_cookies_file()
+    
+    ydl_opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "extract_flat": True,
+        "skip_download": True,
+        "playlistend": 20,
+    }
+    if cookie_file:
+        ydl_opts["cookiefile"] = cookie_file
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info("https://www.youtube.com/feed/trending", download=False)
+            
+            if not info or not info.get("entries"):
+                return jsonify({"videos": []})
+            
+            videos = []
+            for entry in info["entries"]:
+                videos.append({
+                    "id": entry.get("id"),
+                    "url": entry.get("url") or entry.get("webpage_url"),
+                    "title": entry.get("title"),
+                    "duration": entry.get("duration"),
+                    "uploader": entry.get("uploader") or entry.get("channel"),
+                    "thumbnail": entry.get("thumbnail"),
+                    "view_count": entry.get("view_count"),
+                })
+            
+            return jsonify({"videos": videos})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
