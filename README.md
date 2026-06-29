@@ -35,4 +35,6 @@ Watch:
 
     mpv https://<yourproxyadress>/stream?url=https://www.youtube.com/watch?v=9jF2Hvv8j7s&quality=best
 
+For greater simplicity, use the <a href="https://github.com/vangrapf/vangrapf-cli">Vangrapf CLI</a> on Linux.
+
 Aviable proxy <a href="https://github.com/vangrapf/proxylist">here</a>
