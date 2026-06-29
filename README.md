@@ -1,6 +1,8 @@
 # vangrapf-proxy-DeployF
 Vangrapf proxy for Deploy-F
 
+# API Endpoints
+
 Check health: 
 
     curl https://<yourproxyadress>/health
