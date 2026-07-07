@@ -1,40 +1,96 @@
 # vangrapf-proxy-DeployF
-Vangrapf proxy for Deploy-F
 
-# API Endpoints
+Vangrapf proxy for local запуск на Lubuntu через VK Tunnel.
 
-Check health: 
+## Быстрый запуск на Lubuntu
 
-    curl https://<yourproxyadress>/health
+```bash
+./run_lubuntu_vk_tunnel.sh
+```
 
-Download video:
+Скрипт автоматически:
 
-    curl -X POST https://<yourproxyadress>/download -H "Content-Type: application/json" -d '{"url":"https://www.youtube.com/watch?v=jNQXAC9IVRw"}' --output video.mp4
+1. установит системные пакеты через `apt` (`python3-venv`, `python3-tk`, `nodejs`, `npm`, `curl`);
+2. создаст `.venv` и установит/обновит Python-зависимости из `requirements.txt`;
+3. локально установит/обновит `@vkontakte/vk-tunnel` в `node_modules`;
+4. запустит Flask proxy на `http://127.0.0.1:5000`;
+5. запустит VK Tunnel к локальному proxy;
+6. выведет публичную ссылку VK Tunnel в GUI и скопирует её в буфер обмена, когда ссылка появится.
 
-WARNING!!! You need add YOUTUBE_COOKIES varible to continue
+> Логин в VK Tunnel скрипт не автоматизирует: авторизацию нужно пройти вручную в окне/терминале, который откроет VK Tunnel.
 
-# How to use it on Linux
+## GUI
+
+По умолчанию запускается GUI:
+
+```bash
+./run_lubuntu_vk_tunnel.sh
+```
+
+В GUI доступны:
+
+- **Старт / обновить и запустить** — обновляет зависимости и запускает proxy + tunnel;
+- **Добавить в автозапуск** — создаёт user-service systemd и включает запуск при входе пользователя;
+- **Выход** — останавливает дочерние процессы.
+
+## Запуск без GUI
+
+```bash
+./run_lubuntu_vk_tunnel.sh --no-gui
+```
+
+## Только установка/обновление зависимостей
+
+```bash
+./run_lubuntu_vk_tunnel.sh --install-only
+```
+
+## Включить автозапуск из терминала
+
+```bash
+./run_lubuntu_vk_tunnel.sh --enable-autostart
+```
+
+Автозапуск создаётся как user-service:
+
+```bash
+systemctl --user status vangrapf-proxy-vk-tunnel.service
+```
+
+При каждом старте service скрипт снова обновляет Python-пакеты в `.venv` и локальный `@vkontakte/vk-tunnel`, затем запускает proxy и tunnel.
+
+## API Endpoints
+
+Check health:
+
+```bash
+curl http://127.0.0.1:5000/health
+```
 
 Doc:
 
-    curl https://<yourproxyadress>/ | jq
+```bash
+curl http://127.0.0.1:5000/ | jq
+```
 
-Health:
+Download video:
 
-    curl https://<yourproxyadress>/health | jq
+```bash
+curl -X POST http://127.0.0.1:5000/download -H "Content-Type: application/json" -d '{"url":"https://www.youtube.com/watch?v=jNQXAC9IVRw"}' --output video.mp4
+```
 
-Search: 
+Search:
 
-    curl -X POST https://<yourproxyadress>/search -H "Content-Type: application/json" -d '{"query":"музыка"}' | jq
-
-Download:
-
-    curl -X POST https://<yourproxyadress>/download   -H "Content-Type: application/json"   -d '{"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}'   --output video-curl.mp4
+```bash
+curl -X POST http://127.0.0.1:5000/search -H "Content-Type: application/json" -d '{"query":"музыка"}' | jq
+```
 
 Watch:
 
-    mpv https://<yourproxyadress>/stream?url=https://www.youtube.com/watch?v=9jF2Hvv8j7s&quality=best
+```bash
+mpv 'http://127.0.0.1:5000/stream?url=https://www.youtube.com/watch?v=9jF2Hvv8j7s&quality=best'
+```
 
-For greater simplicity, use the <a href="https://github.com/vangrapf/vangrapf-cli">Vangrapf CLI</a> on Linux.
+For public access, use the VK Tunnel URL printed by the launcher instead of `http://127.0.0.1:5000`.
 
-Aviable proxy <a href="https://github.com/vangrapf/proxylist">here</a>
+If YouTube requires cookies, set `YOUTUBE_COOKIES` before launch.
