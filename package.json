@@ -1,0 +1,11 @@
+{
+  "name": "vangrapf-proxy-vk-tunnel",
+  "private": true,
+  "description": "Local VK Tunnel launcher dependencies for Vangrapf Proxy",
+  "scripts": {
+    "tunnel": "vk-tunnel --insecure=1 --http-protocol=http --ws-protocol=ws --host=127.0.0.1 --port=5000"
+  },
+  "devDependencies": {
+    "@vkontakte/vk-tunnel": "latest"
+  }
+}
