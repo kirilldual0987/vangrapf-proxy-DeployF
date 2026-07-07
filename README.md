@@ -57,7 +57,7 @@ Vangrapf VK Tunnel Proxy для локального запуска на Lubuntu
 systemctl --user status vangrapf-proxy-vk-tunnel.service
 ```
 
-При каждом старте service скрипт снова обновляет Python-пакеты в `.venv` и локальный `@vkontakte/vk-tunnel`, затем запускает proxy и tunnel. Проект переименован с Deploy-F/DeployF на VK Tunnel, потому что основной сценарий теперь — локальный запуск через VK Tunnel.
+При каждом старте service скрипт снова обновляет Python-пакеты в `.venv` и локальный `@vkontakte/vk-tunnel`, затем запускает proxy и tunnel.
 
 ## API Endpoints
 

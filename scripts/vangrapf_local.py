@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Local Lubuntu launcher for Vangrapf VK Tunnel Proxy."""
+"""Local Lubuntu launcher for Vangrapf Proxy + VK Tunnel."""
 from __future__ import annotations
 
 import argparse
@@ -21,7 +21,6 @@ PIP = VENV / "bin" / "pip"
 NODE_BIN = ROOT / "node_modules" / ".bin" / "vk-tunnel"
 DEFAULT_PORT = int(os.environ.get("PORT", "5000"))
 SERVICE_NAME = "vangrapf-proxy-vk-tunnel.service"
-PROJECT_NAME = "Vangrapf VK Tunnel Proxy"
 URL_RE = re.compile(r"https?://[^\s'\"]+")
 
 
@@ -30,29 +29,11 @@ def run(cmd: list[str], *, cwd: Path = ROOT, check: bool = True, env: dict[str, 
     return subprocess.run(cmd, cwd=cwd, check=check, text=True, env=env)
 
 
-def _tkinter_available() -> bool:
-    try:
-        import tkinter  # noqa: F401
-    except Exception:
-        return False
-    return True
-
-
-def _venv_available() -> bool:
-    try:
-        import venv
-    except Exception:
-        return False
-    return hasattr(venv, "EnvBuilder")
-
-
 def ensure_system_packages() -> None:
-    missing_bins = [name for name in ("python3", "curl", "node", "npm") if shutil.which(name) is None]
-    needs_tk = not _tkinter_available()
-    needs_venv = not _venv_available()
-    if missing_bins or needs_tk or needs_venv:
+    missing = [name for name in ("python3", "python3-venv", "python3-tk", "curl", "nodejs", "npm") if shutil.which(name) is None and name not in {"python3-venv", "python3-tk"}]
+    if missing or not Path("/usr/lib/python3/dist-packages/tkinter").exists():
         if shutil.which("apt-get") is None:
-            raise RuntimeError("apt-get не найден. Установите python3 python3-venv python3-tk curl nodejs npm вручную.")
+            raise RuntimeError("apt-get не найден. Установите python3-venv python3-tk nodejs npm вручную.")
         run(["sudo", "apt-get", "update"])
         run(["sudo", "apt-get", "install", "-y", "python3", "python3-venv", "python3-tk", "curl", "nodejs", "npm"])
 
@@ -65,7 +46,10 @@ def ensure_python_env() -> None:
 
 
 def ensure_vk_tunnel() -> None:
-    run(["npm", "install"])
+    package_json = ROOT / "package.json"
+    if not package_json.exists():
+        package_json.write_text('{"private":true,"scripts":{"tunnel":"vk-tunnel --insecure=1 --http-protocol=http --ws-protocol=ws --host=127.0.0.1 --port=5000"},"dependencies":{}}\n')
+    run(["npm", "install", "--save-dev", "@vkontakte/vk-tunnel@latest"])
 
 
 def install_all() -> None:
@@ -76,7 +60,7 @@ def install_all() -> None:
 
 def service_text() -> str:
     return f"""[Unit]
-Description=Vangrapf VK Tunnel Proxy
+Description=Vangrapf Proxy with VK Tunnel
 After=network-online.target
 Wants=network-online.target
 
@@ -111,9 +95,6 @@ class ProcessGroup:
         self.public_url = ""
 
     def start(self, port: int, skip_install: bool = False) -> None:
-        if any(proc.poll() is None for proc in self.children):
-            self.on_line("[info] Proxy/VK Tunnel уже запущены.")
-            return
         if not skip_install:
             install_all()
         env = os.environ.copy()
@@ -122,7 +103,7 @@ class ProcessGroup:
         self.children.append(proxy)
         threading.Thread(target=self._reader, args=(proxy, "proxy"), daemon=True).start()
         self._wait_health(port)
-        tunnel_cmd = [str(NODE_BIN)] if NODE_BIN.exists() else ["npx", "--yes", "@vkontakte/vk-tunnel"]
+        tunnel_cmd = [str(NODE_BIN if NODE_BIN.exists() else "npx"), "@vkontakte/vk-tunnel"] if not NODE_BIN.exists() else [str(NODE_BIN)]
         tunnel_cmd += ["--insecure=1", "--http-protocol=http", "--ws-protocol=ws", "--host=127.0.0.1", f"--port={port}"]
         tunnel = subprocess.Popen(tunnel_cmd, cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=sys.stdin, preexec_fn=os.setsid)
         self.children.append(tunnel)
@@ -169,7 +150,7 @@ def gui(args) -> int:
     from tkinter import messagebox, scrolledtext
 
     root = tk.Tk()
-    root.title(PROJECT_NAME)
+    root.title("Vangrapf Proxy + VK Tunnel")
     log = scrolledtext.ScrolledText(root, width=105, height=32)
     log.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
     status = tk.StringVar(value="Нажмите старт. Логин VK Tunnel выполняется вручную в открывшемся окне/терминале.")
@@ -180,35 +161,22 @@ def gui(args) -> int:
         log.insert(tk.END, line + "\n")
         log.see(tk.END)
         if line.startswith("[PUBLIC_URL]"):
-            public_url = line.split(" ", 1)[1]
-            status.set("Ссылка proxy: " + public_url)
-            root.clipboard_clear()
-            root.clipboard_append(public_url)
+            status.set("Ссылка proxy: " + line.split(" ", 1)[1])
+            root.clipboard_clear(); root.clipboard_append(line.split(" ", 1)[1])
 
     def start() -> None:
         start_btn.config(state=tk.DISABLED)
-
-        def worker() -> None:
-            try:
-                group.start(args.port, args.skip_install)
-            except Exception as exc:
-                root.after(0, append, f"[error] {exc}")
-                root.after(0, lambda: start_btn.config(state=tk.NORMAL))
-
-        threading.Thread(target=worker, daemon=True).start()
+        threading.Thread(target=lambda: group.start(args.port, args.skip_install), daemon=True).start()
 
     def autostart() -> None:
         try:
-            install_all()
-            enable_autostart()
+            install_all(); enable_autostart()
             messagebox.showinfo("Автозапуск", "Автозапуск включён через systemd --user.")
         except Exception as exc:
             messagebox.showerror("Ошибка", str(exc))
 
-    buttons = tk.Frame(root)
-    buttons.pack(pady=8)
-    start_btn = tk.Button(buttons, text="Старт / обновить и запустить", command=start)
-    start_btn.pack(side=tk.LEFT, padx=4)
+    buttons = tk.Frame(root); buttons.pack(pady=8)
+    start_btn = tk.Button(buttons, text="Старт / обновить и запустить", command=start); start_btn.pack(side=tk.LEFT, padx=4)
     tk.Button(buttons, text="Добавить в автозапуск", command=autostart).pack(side=tk.LEFT, padx=4)
     tk.Button(buttons, text="Выход", command=lambda: (group.stop(), root.destroy())).pack(side=tk.LEFT, padx=4)
     root.protocol("WM_DELETE_WINDOW", lambda: (group.stop(), root.destroy()))
@@ -229,12 +197,9 @@ def parse_args():
 if __name__ == "__main__":
     ns = parse_args()
     if ns.install_only:
-        install_all()
-        sys.exit(0)
+        install_all(); sys.exit(0)
     if ns.enable_autostart:
-        install_all()
-        enable_autostart()
-        sys.exit(0)
+        install_all(); enable_autostart(); sys.exit(0)
     if not ns.no_gui and not ns.skip_install:
         ensure_system_packages()
     sys.exit(cli(ns) if ns.no_gui else gui(ns))
