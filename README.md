@@ -1,6 +1,6 @@
-# vangrapf-proxy-DeployF
+# vangrapf-proxy-vk-tunnel
 
-Vangrapf proxy for local запуск на Lubuntu через VK Tunnel.
+Vangrapf VK Tunnel Proxy для локального запуска на Lubuntu через VK Tunnel.
 
 ## Быстрый запуск на Lubuntu
 

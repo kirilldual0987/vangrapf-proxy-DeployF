@@ -187,7 +187,7 @@ def get_all_formats(video_url):
 def root():
     """Корневой маршрут с документацией и статусом"""
     return jsonify({
-        "name": "Vangrapf Proxy",
+        "name": "Vangrapf VK Tunnel Proxy",
         "status": "online",
         "version": "3.2",
         "description": "Прокси-сервер для стриминга видео. Оптимизирован для браузеров (MP4/H.264) и MPV.",
@@ -215,7 +215,7 @@ def root():
 
 @app.route('/health')
 def health():
-    return jsonify({"status": "ok", "version": "3.2", "name": "Vangrapf Proxy"})
+    return jsonify({"status": "ok", "version": "3.2", "name": "Vangrapf VK Tunnel Proxy"})
 
 @app.route('/formats', methods=['POST'])
 def formats():
@@ -510,6 +510,6 @@ def trending():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    print(f"[*] Vangrapf Proxy v3.2 starting on port {port}...")
+    print(f"[*] Vangrapf VK Tunnel Proxy v3.2 starting on port {port}...")
     print(f"[*] Documentation available at http://0.0.0.0:{port}/")
     app.run(host='0.0.0.0', port=port, threaded=True)
